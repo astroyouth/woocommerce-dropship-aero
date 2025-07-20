@@ -1,1 +1,9 @@
 vendor/
+*.log
+*.zip
+*.tmp
+.DS_Store
+.idea/
+.vscode/
+node_modules/
+
