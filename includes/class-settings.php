@@ -39,7 +39,7 @@ public static function settings_page() {
         echo '<h1>Email Sent for Order #' . esc_html($log->order_id) . '</h1>';
 
         if ($log) {
-            echo '<pre style="background: #fff; padding: 20px; border: 1px solid #ccc; white-space: pre-wrap;">' . esc_html($log->email_content) . '</pre>';
+            echo '<pre style="background: #fff; padding: 20px; border: 1px solid #ccc; white-space: pre-wrap;">' . $log->email_content . '</pre>';
         } else {
             echo '<p>Email not found.</p>';
         }
@@ -178,7 +178,7 @@ private static function render_email_template_tab() {
     ]);
 
     // Output preview below the editor
-    echo '<h3>Preview Mode (live values):</h3>';
+    echo '<h3>Preview Mode (With some pretend data):</h3>';
     echo '<div style="border:1px solid #ccc; padding: 10px; background: #fff; margin-top:20px;">';
     echo wp_kses_post($preview_template);
     echo '</div>';

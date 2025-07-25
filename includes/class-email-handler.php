@@ -105,7 +105,6 @@ class WD_Aero_Email_Handler {
                         <th>Product</th>
                         <th>Product Code</th>
                         <th>Qty</th>
-                        <th>Price</th>
                     </tr>
                 </thead>
                 <tbody>' . $product_rows . '</tbody>
@@ -117,15 +116,24 @@ class WD_Aero_Email_Handler {
         // Send the email
         error_log("[WD_AERO] Sending email to: $partner_email");
         error_log("[WD_AERO] Final email content:\n" . $template);
-        wp_mail($partner_email, "New Dropship Order #{$order_id}", $template, ['Content-Type: text/html; charset=UTF-8']);
-        if (wp_mail($partner_email, "New Dropship Order #{$order_id}", $template, ['Content-Type: text/html; charset=UTF-8'])) {
+
+        $sent = wp_mail(
+            $partner_email,
+            "New Dropship Order #{$order_id}",
+            $template,
+            ['Content-Type: text/html; charset=UTF-8']
+        );
+
+        if ($sent) {
             error_log("[WD_AERO] Email sent successfully.");
         } else {
             error_log("[WD_AERO] wp_mail failed.");
         }
+
         error_log("[WD_AERO] Subject: New Dropship Order #{$order_id}");
         error_log("[WD_AERO] Partner Email: $partner_email");
         error_log("[WD_AERO] Retrieved Partner Email: " . get_option('wd_aero_partner_email'));
+
 
 
         // Store log
