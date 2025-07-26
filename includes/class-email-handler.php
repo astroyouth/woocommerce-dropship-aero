@@ -89,11 +89,13 @@ class WD_Aero_Email_Handler {
         foreach ($dropship_items as $item) {
             $product = $item->get_product();
             if (!$product) continue;
+            $distributor_price = get_post_meta($product->get_id(), '_distributor_price', true);
 
             $product_rows .= '<tr>
                 <td>' . esc_html($item->get_name()) . '</td>
                 <td>' . esc_html($product->get_sku()) . '</td>
                 <td>' . esc_html($item->get_quantity()) . '</td>
+                <td>' . esc_html(wp_strip_all_tags(wc_price($distributor_price))) . '</td>
             </tr>';
         }
 
@@ -105,6 +107,7 @@ class WD_Aero_Email_Handler {
                         <th>Product</th>
                         <th>Product Code</th>
                         <th>Qty</th>
+                        <th>Dist. Price</th>
                     </tr>
                 </thead>
                 <tbody>' . $product_rows . '</tbody>

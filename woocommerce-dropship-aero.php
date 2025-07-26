@@ -18,6 +18,8 @@ define('WD_AERO_PLUGIN_DIR', plugin_dir_path(__FILE__));
 require_once WD_AERO_PLUGIN_DIR . 'includes/class-settings.php';
 require_once WD_AERO_PLUGIN_DIR . 'includes/class-email-handler.php';
 require_once WD_AERO_PLUGIN_DIR . 'includes/class-auto-complete.php';
+require_once WD_AERO_PLUGIN_DIR . 'includes/class-distributor-price.php';
+
 error_log("[WD_AERO] Plugin loaded and main file executed.");
 
 // Initialize settings UI

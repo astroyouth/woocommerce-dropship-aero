@@ -164,12 +164,12 @@ private static function render_email_template_tab() {
             <table border="1" cellpadding="8" cellspacing="0" style="border-collapse:collapse; width: 794px;">
                 <thead>
                     <tr>
-                        <th>Product</th><th>Product Code</th><th>Qty</th>
+                        <th>Product</th><th>Product Code</th><th>Qty</th><th>Distributor Price</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <tr><td>Premier Children First Aid Kit</td><td>8170</td><td>1</td></tr>
-                    <tr><td>SAM Splint 36 Standard Roll</td><td>1381</td><td>1</td></tr>
+                    <tr><td>Premier Children First Aid Kit</td><td>8170</td><td>1</td><td>£23.30</td></tr>
+                    <tr><td>SAM Splint 36 Standard Roll</td><td>1381</td><td>1</td><td>£10.50</td></tr>
                 </tbody>
             </table>
         ',
