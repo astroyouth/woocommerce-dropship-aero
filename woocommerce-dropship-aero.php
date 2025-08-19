@@ -1,7 +1,7 @@
 <?php
 
 /*
-Plugin Name: WooCommerce Dropship Aero
+Plugin Name: WooCommerce Dropship Steroplast
 Description: Forward dropshipping orders to Aero Healthcare or other partners.
 Version: 1.0.0
 Author: Alex Dale
@@ -19,6 +19,7 @@ require_once WD_AERO_PLUGIN_DIR . 'includes/class-settings.php';
 require_once WD_AERO_PLUGIN_DIR . 'includes/class-email-handler.php';
 require_once WD_AERO_PLUGIN_DIR . 'includes/class-auto-complete.php';
 require_once WD_AERO_PLUGIN_DIR . 'includes/class-distributor-price.php';
+
 
 error_log("[WD_AERO] Plugin loaded and main file executed.");
 
@@ -39,16 +40,22 @@ register_activation_hook(__FILE__, 'wd_aero_create_dropship_log_table');
 function wd_aero_create_dropship_log_table() {
     global $wpdb;
     $table_name = $wpdb->prefix . 'wd_aero_dropship_log';
-
     $charset_collate = $wpdb->get_charset_collate();
 
-    $sql = "CREATE TABLE $table_name (
+    $sql = "CREATE TABLE {$table_name} (
         id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
         order_id BIGINT(20) NOT NULL,
+        to_email VARCHAR(255) NULL,
+        subject VARCHAR(255) NULL,
+        status VARCHAR(20) NOT NULL DEFAULT 'sent', /* sent|failed */
         email_content LONGTEXT NOT NULL,
+        error TEXT NULL,
         sent_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        PRIMARY KEY (id)
-    ) $charset_collate;";
+        PRIMARY KEY (id),
+        KEY order_id (order_id),
+        KEY status (status),
+        KEY sent_at (sent_at)
+    ) {$charset_collate};";
 
     require_once ABSPATH . 'wp-admin/includes/upgrade.php';
     dbDelta($sql);

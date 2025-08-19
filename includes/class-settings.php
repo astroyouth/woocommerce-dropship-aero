@@ -8,8 +8,8 @@ class WD_Aero_Settings {
 
     public static function add_menu() {
         add_options_page(
-            'Dropship Aero Settings',
-            'Dropship Aero',
+            'Dropship Steroplast Settings',
+            'Dropship Steroplast',
             'manage_options',
             'wd_aero_settings',
             [__CLASS__, 'settings_page']
@@ -48,11 +48,37 @@ public static function settings_page() {
         echo '</div>';
         return;
     }
+    if (isset($_GET['view_email'], $_GET['_wpnonce'])) {
+        $log_id = absint($_GET['view_email']);
+        if (!wp_verify_nonce($_GET['_wpnonce'], 'wd_aero_view_email_' . $log_id)) {
+            wp_die(esc_html__('Nonce verification failed.', 'wd-aero'));
+        }
+        global $wpdb;
+        $log = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$wpdb->prefix}wd_aero_dropship_log WHERE id = %d", $log_id));
 
+        echo '<div class="wrap">';
+        echo '<h1>Email Sent</h1>';
+        if ($log) {
+            echo '<p><strong>Order:</strong> #' . esc_html($log->order_id) . '</p>';
+            echo '<p><strong>Status:</strong> ' . esc_html($log->status ?: 'sent') . '</p>';
+            echo '<p><strong>To:</strong> ' . esc_html($log->to_email) . '</p>';
+            echo '<p><strong>Subject:</strong> ' . esc_html($log->subject) . '</p>';
+            echo '<div style="background:#fff; padding: 16px; border:1px solid #ccd0d4; max-width: 900px; overflow:auto;">' . wp_kses_post($log->email_content) . '</div>';
+            if (!empty($log->error)) {
+                echo '<p><strong>Error:</strong> ' . esc_html($log->error) . '</p>';
+            }
+        } else {
+            echo '<p>' . esc_html__('Email not found.', 'wd-aero') . '</p>';
+        }
+        $back = esc_url(admin_url('options-general.php?page=wd_aero_settings&tab=dropship_orders'));
+        echo '<p><a class="button" href="' . $back . '">&larr; ' . esc_html__('Back to Dropship Orders', 'wd-aero') . '</a></p>';
+        echo '</div>';
+        return;
+    }
     // Normal settings tabs UI
     ?>
     <div class="wrap">
-        <h1>Dropship Aero</h1>
+        <h1>Dropship Steroplast</h1>
         <h2 class="nav-tab-wrapper">
             <a href="?page=wd_aero_settings&tab=settings" class="nav-tab <?php echo $active_tab == 'settings' ? 'nav-tab-active' : ''; ?>">Settings</a>
             <a href="?page=wd_aero_settings&tab=email_template" class="nav-tab <?php echo $active_tab == 'email_template' ? 'nav-tab-active' : ''; ?>">Email Template</a>
@@ -187,55 +213,72 @@ private static function render_email_template_tab() {
 
 
 
-    private static function render_dropship_orders_tab() {
-        global $wpdb;
-        $table_name = $wpdb->prefix . 'wd_aero_dropship_log';
-        $logs = $wpdb->get_results("SELECT * FROM $table_name ORDER BY sent_at DESC LIMIT 50");
+   private static function render_dropship_orders_tab() {
+    global $wpdb;
+    $table = $wpdb->prefix . 'wd_aero_dropship_log';
+    $cols  = $wpdb->get_results( "SHOW COLUMNS FROM {$table}" );
 
-        ?>
-        <table class="wp-list-table widefat fixed striped">
-            <thead>
-                <tr>
-                    <th>Order ID</th>
-                    <th>Date</th>
-                    <th>Customer Name</th>
-                    <th>Customer Email</th>
-                    <th>Postcode</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php if (!empty($logs)) : ?>
-                    <?php foreach ($logs as $log): 
-                        $order = wc_get_order($log->order_id);
-                        $customer_name = $order ? $order->get_formatted_billing_full_name() : '—';
-                        $customer_email = $order ? $order->get_billing_email() : '—';
-                        $postcode = $order ? $order->get_shipping_postcode() : '—';
-                    ?>
-                        <tr>
-                            <td><?php echo esc_html($log->order_id); ?></td>
-                            <td><?php echo esc_html(date('Y-m-d H:i', strtotime($log->sent_at))); ?></td>
-                            <td><?php echo esc_html($customer_name); ?></td>
-                            <td><?php echo esc_html($customer_email); ?></td>
-                            <td><?php echo esc_html($postcode); ?></td>
-                            <td>
-                                <select onchange="if (this.value) window.open(this.value, '_blank');">
-                                    <option value="">Select Action</option>
-                                    <option value="<?php echo admin_url('post.php?post=' . intval($log->order_id) . '&action=edit'); ?>">View Order</option>
-                                    <option value="<?php echo esc_url(admin_url('admin.php?page=wd_aero_settings&view_email=' . intval($log->id))); ?>">View Email</option>
-                                </select>
-                            </td>
-                        </tr>
-                    <?php endforeach; ?>
-                <?php else: ?>
-                    <tr>
-                        <td colspan="6">No dropship orders found.</td>
-                    </tr>
-                <?php endif; ?>
-            </tbody>
-        </table>
-        <?php
+    // TEMP: show columns (remove after testing)
+    echo '<div class="notice notice-info"><p><strong>wd_aero_dropship_log columns:</strong> ';
+    if ($cols) {
+        $names = array_map(function($c){ return esc_html($c->Field); }, $cols);
+        echo implode(', ', $names);
+    } else {
+        echo 'unknown';
     }
+    echo '</p></div>';
+
+    $table = $wpdb->prefix . 'wd_aero_dropship_log';
+
+    // Prefer sent_at; fallback to created_at; finally fallback to id
+    $order_by = "COALESCE(sent_at, created_at) DESC, id DESC";
+
+    // Run the query and capture any SQL errors
+    $sql  = "SELECT * FROM {$table} ORDER BY sent_at DESC, id DESC LIMIT 100";
+    $logs = $wpdb->get_results( $sql );
+
+    // If there was an SQL error, show it (temporary; remove after debugging)
+    if ( ! empty( $wpdb->last_error ) ) {
+        echo '<div class="notice notice-error"><p><strong>SQL error:</strong> ' . esc_html( $wpdb->last_error ) . '</p>';
+        echo '<p><code>' . esc_html( $sql ) . '</code></p></div>';
+    }
+
+    echo '<table class="wp-list-table widefat fixed striped">';
+    echo '<thead><tr>';
+    echo '<th>Order</th><th>Status</th><th>To</th><th>Subject</th><th>Date</th><th>Actions</th>';
+    echo '</tr></thead><tbody>';
+
+    if ( $logs ) {
+        foreach ( $logs as $log ) {
+            // Pick whatever date exists
+            $date = !empty($log->sent_at) ? $log->sent_at : (!empty($log->created_at) ? $log->created_at : '');
+
+            // Nonce-protected "View Email"
+            $view_url = wp_nonce_url(
+                admin_url('options-general.php?page=wd_aero_settings&tab=dropship_orders&view_email=' . absint($log->id)),
+                'wd_aero_view_email_' . absint($log->id)
+            );
+
+            echo '<tr>';
+            echo '<td>#' . esc_html( $log->order_id ) . '</td>';
+            echo '<td>' . esc_html( $log->status ?: 'sent' ) . '</td>';
+            echo '<td>' . esc_html( $log->to_email ?? '' ) . '</td>';
+            echo '<td>' . esc_html( $log->subject ?? '' ) . '</td>';
+            echo '<td>' . esc_html( $date ) . '</td>';
+            echo '<td>';
+            echo '<a class="button" href="' . esc_url( admin_url( 'post.php?post=' . absint( $log->order_id ) . '&action=edit' ) ) . '">View Order</a> ';
+            echo '<a class="button" href="' . esc_url( $view_url ) . '">View Email</a>';
+            echo '</td>';
+            echo '</tr>';
+        }
+    } else {
+        echo '<tr><td colspan="6">No logs found.</td></tr>';
+    }
+
+    echo '</tbody></table>';
+}
+
+
 
 
 
