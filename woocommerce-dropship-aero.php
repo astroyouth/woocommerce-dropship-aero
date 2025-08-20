@@ -22,7 +22,7 @@ require_once WD_AERO_PLUGIN_DIR . 'includes/class-distributor-price.php';
 
 // adding plugin updater
 // functions at plugin load
-require_once __DIR__ . '/includes/puc/plugin-update-checker.php';
+require_once __DIR__ . '/includes/puc/plugin-update-checker/plugin-update-checker.php';
 
 use YahnisElsts\PluginUpdateChecker\v5\PucFactory;
 
