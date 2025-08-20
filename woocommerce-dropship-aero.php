@@ -3,7 +3,7 @@
 /*
 Plugin Name: WooCommerce Dropship Steroplast
 Description: Forward dropshipping orders to Aero Healthcare or other partners.
-Version: 1.1.0
+Version: 1.1.1
 Author: Alex Dale
 */
 if (!isset($GLOBALS['wd_aero_raw_body'])) {
@@ -26,18 +26,36 @@ require_once __DIR__ . '/includes/puc/plugin-update-checker/plugin-update-checke
 
 use YahnisElsts\PluginUpdateChecker\v5\PucFactory;
 
-// If your repo is public:
-$myUpdateChecker = PucFactory::buildUpdateChecker(
-    'https://github.com/astroyouth/woocommerce-dropship-aero/', // repo URL
-    __FILE__,                                                  // main plugin file
-    'woocommerce-dropship-aero'                                // plugin slug (unique)
-);
 
-// If your repo is private, uncomment this line and add a token with read access:
-// $myUpdateChecker->setAuthentication('ghp_yourGitHubTokenHere');
+add_action('plugins_loaded', function () {
+    // 2) Point to the EXACT GitHub repo URL (no .git at the end)
+    //    Replace OWNER and REPO with your actual names.
+    $repoUrl = 'https://github.com/astroyouth/woocommerce-dropship-aero.git';
 
-// Optional: if you use GitHub Releases, use tags as versions:
-$myUpdateChecker->getVcsApi()->enableReleaseAssets();
+    // 3) Tell PUC where your main plugin file is AND give it a unique slug.
+    //    If this code is in the main plugin file itself, you can use __FILE__.
+    //    Otherwise, use an absolute path to that file.
+    $main_file = __FILE__; // <-- use this ONLY if this code sits in the main plugin file.
+    // If this code is in another file, do this instead:
+    // $main_file = WP_PLUGIN_DIR . '/woocommerce-dropship-aero/woocommerce-dropship-aero.php';
+
+    $updateChecker = PucFactory::buildUpdateChecker(
+        $repoUrl,
+        $main_file,
+        'woocommerce-dropship-aero' // your plugin slug (any unique string)
+    );
+
+    // 4) Track the branch you actually use (most repos use "main" now)
+    $updateChecker->setBranch('main');
+
+    // 5) If the GitHub repo is PRIVATE, add a read-only token:
+    // $updateChecker->setAuthentication('ghp_your_readonly_token');
+
+    // 6) (Testing) Force a check when you open wp-admin (remove later).
+    add_action('admin_init', function() use ($updateChecker) {
+        $updateChecker->checkForUpdates();
+    });
+});
 
 
 error_log("[WD_AERO] Plugin loaded and main file executed.");
