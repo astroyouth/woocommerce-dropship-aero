@@ -3,7 +3,7 @@
 /*
 Plugin Name: WooCommerce Dropship Steroplast
 Description: Forward dropshipping orders to Aero Healthcare or other partners.
-Version: 1.0.0
+Version: 1.1.0
 Author: Alex Dale
 */
 if (!isset($GLOBALS['wd_aero_raw_body'])) {
@@ -19,6 +19,25 @@ require_once WD_AERO_PLUGIN_DIR . 'includes/class-settings.php';
 require_once WD_AERO_PLUGIN_DIR . 'includes/class-email-handler.php';
 require_once WD_AERO_PLUGIN_DIR . 'includes/class-auto-complete.php';
 require_once WD_AERO_PLUGIN_DIR . 'includes/class-distributor-price.php';
+
+// adding plugin updater
+// functions at plugin load
+require_once __DIR__ . '/includes/puc/plugin-update-checker.php';
+
+use YahnisElsts\PluginUpdateChecker\v5\PucFactory;
+
+// If your repo is public:
+$myUpdateChecker = PucFactory::buildUpdateChecker(
+    'https://github.com/astroyouth/woocommerce-dropship-aero/', // repo URL
+    __FILE__,                                                  // main plugin file
+    'woocommerce-dropship-aero'                                // plugin slug (unique)
+);
+
+// If your repo is private, uncomment this line and add a token with read access:
+// $myUpdateChecker->setAuthentication('ghp_yourGitHubTokenHere');
+
+// Optional: if you use GitHub Releases, use tags as versions:
+$myUpdateChecker->getVcsApi()->enableReleaseAssets();
 
 
 error_log("[WD_AERO] Plugin loaded and main file executed.");
