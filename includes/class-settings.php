@@ -215,33 +215,26 @@ private static function render_email_template_tab() {
 
    private static function render_dropship_orders_tab() {
     global $wpdb;
-    $table = $wpdb->prefix . 'wd_aero_dropship_log';
-    $cols  = $wpdb->get_results( "SHOW COLUMNS FROM {$table}" );
 
-    // TEMP: show columns (remove after testing)
-    echo '<div class="notice notice-info"><p><strong>wd_aero_dropship_log columns:</strong> ';
-    if ($cols) {
-        $names = array_map(function($c){ return esc_html($c->Field); }, $cols);
-        echo implode(', ', $names);
-    } else {
-        echo 'unknown';
+    // Handle a restore (untrash) request.
+    if ( isset($_GET['wd_aero_untrash'], $_GET['_wpnonce']) ) {
+        $oid = absint($_GET['wd_aero_untrash']);
+        if ( wp_verify_nonce($_GET['_wpnonce'], 'wd_aero_untrash_' . $oid) && current_user_can('edit_shop_orders') ) {
+            wp_untrash_post($oid);
+            echo '<div class="notice notice-success"><p>Order #' . esc_html($oid) . ' restored.</p></div>';
+        }
     }
-    echo '</p></div>';
 
     $table = $wpdb->prefix . 'wd_aero_dropship_log';
-
-    // Prefer sent_at; fallback to created_at; finally fallback to id
-    $order_by = "COALESCE(sent_at, created_at) DESC, id DESC";
-
-    // Run the query and capture any SQL errors
-    $sql  = "SELECT * FROM {$table} ORDER BY sent_at DESC, id DESC LIMIT 100";
-    $logs = $wpdb->get_results( $sql );
-
-    // If there was an SQL error, show it (temporary; remove after debugging)
-    if ( ! empty( $wpdb->last_error ) ) {
-        echo '<div class="notice notice-error"><p><strong>SQL error:</strong> ' . esc_html( $wpdb->last_error ) . '</p>';
-        echo '<p><code>' . esc_html( $sql ) . '</code></p></div>';
-    }
+    // Join to posts to learn the order post_status in one query.
+    $sql = "
+        SELECT l.*, p.post_status
+        FROM {$table} l
+        LEFT JOIN {$wpdb->posts} p ON p.ID = l.order_id
+        ORDER BY l.sent_at DESC, l.id DESC
+        LIMIT 100
+    ";
+    $logs = $wpdb->get_results($sql);
 
     echo '<table class="wp-list-table widefat fixed striped">';
     echo '<thead><tr>';
@@ -250,24 +243,56 @@ private static function render_email_template_tab() {
 
     if ( $logs ) {
         foreach ( $logs as $log ) {
-            // Pick whatever date exists
-            $date = !empty($log->sent_at) ? $log->sent_at : (!empty($log->created_at) ? $log->created_at : '');
+            $order_exists = !empty($log->post_status);         // null if permanently deleted
+            $is_trashed   = ($log->post_status === 'trash');
 
-            // Nonce-protected "View Email"
-            $view_url = wp_nonce_url(
+            // Compute a display label for the order column
+            $order_label = '#' . intval($log->order_id);
+            if ( $is_trashed ) {
+                $order_label .= ' <span class="dashicons dashicons-trash" title="Trashed" style="color:#aa0000"></span>';
+            } elseif ( ! $order_exists ) {
+                $order_label .= ' <span class="dashicons dashicons-dismiss" title="Deleted" style="color:#777"></span>';
+            }
+
+            // Log status: if you didn’t add a 'status' column in the DB, derive it from error.
+            $log_status = isset($log->status) && $log->status ? $log->status : (empty($log->error) ? 'sent' : 'failed');
+
+            // Build action URLs
+            $view_order_url = $order_exists
+                ? admin_url('post.php?post=' . absint($log->order_id) . '&action=edit')
+                : '';
+
+            $view_email_url = wp_nonce_url(
                 admin_url('options-general.php?page=wd_aero_settings&tab=dropship_orders&view_email=' . absint($log->id)),
                 'wd_aero_view_email_' . absint($log->id)
             );
 
+            $restore_url = $is_trashed
+                ? wp_nonce_url(
+                    admin_url('options-general.php?page=wd_aero_settings&tab=dropship_orders&wd_aero_untrash=' . absint($log->order_id)),
+                    'wd_aero_untrash_' . absint($log->order_id)
+                  )
+                : '';
+
             echo '<tr>';
-            echo '<td>#' . esc_html( $log->order_id ) . '</td>';
-            echo '<td>' . esc_html( $log->status ?: 'sent' ) . '</td>';
-            echo '<td>' . esc_html( $log->to_email ?? '' ) . '</td>';
-            echo '<td>' . esc_html( $log->subject ?? '' ) . '</td>';
-            echo '<td>' . esc_html( $date ) . '</td>';
+            echo '<td>' . wp_kses_post($order_label) . '</td>';
+            echo '<td>' . esc_html($log_status) . '</td>';
+            echo '<td>' . esc_html($log->to_email ?? '') . '</td>';
+            echo '<td>' . esc_html($log->subject ?? '') . '</td>';
+            echo '<td>' . esc_html($log->sent_at ?? '') . '</td>';
             echo '<td>';
-            echo '<a class="button" href="' . esc_url( admin_url( 'post.php?post=' . absint( $log->order_id ) . '&action=edit' ) ) . '">View Order</a> ';
-            echo '<a class="button" href="' . esc_url( $view_url ) . '">View Email</a>';
+
+            // Actions: View Order (if exists & not trashed), Restore (if trashed), View Email (always)
+            if ( $order_exists && ! $is_trashed ) {
+                echo '<a class="button" href="' . esc_url($view_order_url) . '">View Order</a> ';
+            } elseif ( $is_trashed && current_user_can('edit_shop_orders') ) {
+                echo '<a class="button" href="' . esc_url($restore_url) . '">Restore Order</a> ';
+            } else {
+                echo '<span class="button disabled" aria-disabled="true" style="opacity:.6;cursor:not-allowed;">Order Missing</span> ';
+            }
+
+            echo '<a class="button" href="' . esc_url($view_email_url) . '">View Email</a>';
+
             echo '</td>';
             echo '</tr>';
         }
@@ -277,6 +302,7 @@ private static function render_email_template_tab() {
 
     echo '</tbody></table>';
 }
+
 
 
 
