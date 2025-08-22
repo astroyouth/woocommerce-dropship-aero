@@ -3,7 +3,7 @@
 /*
 Plugin Name: WooCommerce Dropship Steroplast
 Description: Forward dropshipping orders to Aero Healthcare or other partners.
-Version: 1.2.2
+Version: 1.2.3
 Author: Alex Dale
 */
 if (!isset($GLOBALS['wd_aero_raw_body'])) {
