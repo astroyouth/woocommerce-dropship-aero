@@ -3,7 +3,7 @@
 /*
 Plugin Name: WooCommerce Dropship Steroplast
 Description: Forward dropshipping orders to Aero Healthcare or other partners.
-Version: 1.1.1
+Version: 1.2.1
 Author: Alex Dale
 */
 if (!isset($GLOBALS['wd_aero_raw_body'])) {
@@ -20,41 +20,23 @@ require_once WD_AERO_PLUGIN_DIR . 'includes/class-email-handler.php';
 require_once WD_AERO_PLUGIN_DIR . 'includes/class-auto-complete.php';
 require_once WD_AERO_PLUGIN_DIR . 'includes/class-distributor-price.php';
 
-// adding plugin updater
-// functions at plugin load
-require_once __DIR__ . '/includes/puc/plugin-update-checker/plugin-update-checker.php';
-
+// Plugin updater (PUC)
+require_once __DIR__ . '/includes/puc/plugin-update-checker.php';
 use YahnisElsts\PluginUpdateChecker\v5\PucFactory;
 
-
 add_action('plugins_loaded', function () {
-    // 2) Point to the EXACT GitHub repo URL (no .git at the end)
-    //    Replace OWNER and REPO with your actual names.
-    $repoUrl = 'https://github.com/astroyouth/woocommerce-dropship-aero.git';
-
-    // 3) Tell PUC where your main plugin file is AND give it a unique slug.
-    //    If this code is in the main plugin file itself, you can use __FILE__.
-    //    Otherwise, use an absolute path to that file.
-    $main_file = __FILE__; // <-- use this ONLY if this code sits in the main plugin file.
-    // If this code is in another file, do this instead:
-    // $main_file = WP_PLUGIN_DIR . '/woocommerce-dropship-aero/woocommerce-dropship-aero.php';
-
     $updateChecker = PucFactory::buildUpdateChecker(
-        $repoUrl,
-        $main_file,
-        'woocommerce-dropship-aero' // your plugin slug (any unique string)
+        'https://raw.githubusercontent.com/astroyouth/woocommerce-dropship-aero/main/update.json',
+        __FILE__,
+        'woocommerce-dropship-aero'
     );
 
-    // 4) Track the branch you actually use (most repos use "main" now)
-    $updateChecker->setBranch('main');
-
-    // 5) If the GitHub repo is PRIVATE, add a read-only token:
-    // $updateChecker->setAuthentication('ghp_your_readonly_token');
-
-    // 6) (Testing) Force a check when you open wp-admin (remove later).
+    // TEMP debug/force
     add_action('admin_init', function() use ($updateChecker) {
+        delete_site_transient('update_plugins');
         $updateChecker->checkForUpdates();
     });
+    add_filter('puc_debug_mode', '__return_true');
 });
 
 
