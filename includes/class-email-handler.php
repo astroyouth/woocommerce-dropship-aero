@@ -59,7 +59,7 @@ class WD_Aero_Email_Handler {
     }
     $delivery_address_html = WC()->countries->get_formatted_address($addr);
 
-    // Build items table (Product | Product Code | Qty | Dist. Price)
+    // Build items table (Product | Product Code | Qty | Distributor Unit Price)
     $rows = '';
     foreach ($dropship_items as $item) {
         $product = $item->get_product();
@@ -81,7 +81,7 @@ class WD_Aero_Email_Handler {
                     <th>Product</th>
                     <th>Product Code</th>
                     <th>Qty</th>
-                    <th>Dist. Price</th>
+                    <th>Distributor Unit Price</th>
                 </tr>
             </thead>
             <tbody>' . $rows . '</tbody>
