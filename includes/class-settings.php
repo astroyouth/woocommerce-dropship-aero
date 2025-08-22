@@ -153,6 +153,7 @@ private static function render_settings_tab() {
 }
 
 private static function render_email_template_tab() {
+    
     // Load saved template with placeholders
     $raw_template = get_option('wd_aero_email_template', '');
 
@@ -214,99 +215,151 @@ private static function render_email_template_tab() {
 
 
    private static function render_dropship_orders_tab() {
+    if ( ! current_user_can('manage_options') ) {
+        wp_die( esc_html__('You do not have permission to view this page.', 'wd-aero') );
+    }
+
     global $wpdb;
 
-    // Handle a restore (untrash) request.
+    // --- Restore (Untrash) handler ---
     if ( isset($_GET['wd_aero_untrash'], $_GET['_wpnonce']) ) {
         $oid = absint($_GET['wd_aero_untrash']);
         if ( wp_verify_nonce($_GET['_wpnonce'], 'wd_aero_untrash_' . $oid) && current_user_can('edit_shop_orders') ) {
-            wp_untrash_post($oid);
-            echo '<div class="notice notice-success"><p>Order #' . esc_html($oid) . ' restored.</p></div>';
+            $restored = false;
+
+            if ( function_exists('wp_untrash_post') && 'trash' === get_post_status($oid) ) {
+                $res = wp_untrash_post($oid);
+                $restored = (false !== $res);
+            }
+
+            if ( ! $restored && function_exists('wc_get_order') ) {
+                $order = wc_get_order($oid);
+                if ( $order ) {
+                    $prev = get_post_meta($oid, '_wp_trash_meta_status', true);
+                    $new  = $prev ? $prev : 'pending';
+                    if ( method_exists($order, 'set_status') ) {
+                        $order->set_status($new);
+                        $order->save();
+                        $restored = true;
+                    }
+                }
+            }
+
+            if ( $restored ) {
+                echo '<div class="notice notice-success"><p>' . sprintf( esc_html__( 'Order #%d restored.', 'wd-aero' ), $oid ) . '</p></div>';
+            } else {
+                echo '<div class="notice notice-error"><p>' . sprintf( esc_html__( 'Could not restore order #%d. You can also restore it from WooCommerce → Orders → Trash.', 'wd-aero' ), $oid ) . '</p></div>';
+            }
         }
     }
 
+    // --- Fetch logs + post_status ---
     $table = $wpdb->prefix . 'wd_aero_dropship_log';
-    // Join to posts to learn the order post_status in one query.
-    $sql = "
+    $sql   = "
         SELECT l.*, p.post_status
         FROM {$table} l
         LEFT JOIN {$wpdb->posts} p ON p.ID = l.order_id
         ORDER BY l.sent_at DESC, l.id DESC
         LIMIT 100
     ";
-    $logs = $wpdb->get_results($sql);
+    $logs = $wpdb->get_results( $sql );
 
+    // --- Render table ---
     echo '<table class="wp-list-table widefat fixed striped">';
     echo '<thead><tr>';
-    echo '<th>Order</th><th>Status</th><th>To</th><th>Subject</th><th>Date</th><th>Actions</th>';
+    echo '<th>' . esc_html__( 'Order', 'wd-aero' )   . '</th>';
+    echo '<th>' . esc_html__( 'Customer', 'wd-aero' )   . '</th>';
+    echo '<th>' . esc_html__( 'Status', 'wd-aero' )  . '</th>';
+    echo '<th>' . esc_html__( 'To', 'wd-aero' )      . '</th>';
+    echo '<th>' . esc_html__( 'Subject', 'wd-aero' ) . '</th>';
+    echo '<th>' . esc_html__( 'Date', 'wd-aero' )    . '</th>';
+    echo '<th>' . esc_html__( 'Actions', 'wd-aero' ) . '</th>';
     echo '</tr></thead><tbody>';
 
     if ( $logs ) {
         foreach ( $logs as $log ) {
-            $order_exists = !empty($log->post_status);         // null if permanently deleted
-            $is_trashed   = ($log->post_status === 'trash');
+            $wp_status   = $log->post_status;
+            $exists      = ( null !== $wp_status );
+            $is_trashed  = ( 'trash' === $wp_status );
 
-            // Compute a display label for the order column
-            $order_label = '#' . intval($log->order_id);
-            if ( $is_trashed ) {
-                $order_label .= ' <span class="dashicons dashicons-trash" title="Trashed" style="color:#aa0000"></span>';
-            } elseif ( ! $order_exists ) {
-                $order_label .= ' <span class="dashicons dashicons-dismiss" title="Deleted" style="color:#777"></span>';
+            if ( ! $is_trashed && function_exists('wc_get_order') ) {
+                $o = wc_get_order( $log->order_id );
+                if ( $o && method_exists($o, 'get_status') && 'trash' === $o->get_status() ) {
+                    $is_trashed = true;
+                }
             }
 
-            // Log status: if you didn’t add a 'status' column in the DB, derive it from error.
-            $log_status = isset($log->status) && $log->status ? $log->status : (empty($log->error) ? 'sent' : 'failed');
+            // Order label
+            $order_cell = '#' . intval( $log->order_id );
+            if ( $is_trashed ) {
+                $order_cell .= ' <span class="dashicons dashicons-trash" title="Trashed" style="color:#a00"></span>';
+            } elseif ( ! $exists ) {
+                $order_cell .= ' <span class="dashicons dashicons-dismiss" title="Deleted" style="color:#777"></span>';
+            }
 
-            // Build action URLs
-            $view_order_url = $order_exists
-                ? admin_url('post.php?post=' . absint($log->order_id) . '&action=edit')
+            // Customer name
+            $customer_name = '—';
+            if ( $exists && function_exists('wc_get_order') ) {
+                $order = wc_get_order( $log->order_id );
+                if ( $order ) {
+                    $customer_name = $order->get_formatted_billing_full_name();
+                    if ( ! $customer_name ) {
+                        $customer_name = $order->get_billing_first_name() . ' ' . $order->get_billing_last_name();
+                    }
+                    $customer_name = trim($customer_name) ?: '—';
+                }
+            }
+
+            // Log status
+            $log_status = ( isset($log->status) && $log->status !== '' )
+                ? $log->status
+                : ( empty($log->error) ? 'sent' : 'failed' );
+
+            // Actions
+            $view_order_url = ( $exists && ! $is_trashed )
+                ? admin_url( 'post.php?post=' . absint( $log->order_id ) . '&action=edit' )
                 : '';
 
             $view_email_url = wp_nonce_url(
-                admin_url('options-general.php?page=wd_aero_settings&tab=dropship_orders&view_email=' . absint($log->id)),
-                'wd_aero_view_email_' . absint($log->id)
+                admin_url( 'options-general.php?page=wd_aero_settings&tab=dropship_orders&view_email=' . absint( $log->id ) ),
+                'wd_aero_view_email_' . absint( $log->id )
             );
 
             $restore_url = $is_trashed
                 ? wp_nonce_url(
-                    admin_url('options-general.php?page=wd_aero_settings&tab=dropship_orders&wd_aero_untrash=' . absint($log->order_id)),
-                    'wd_aero_untrash_' . absint($log->order_id)
+                    admin_url( 'options-general.php?page=wd_aero_settings&tab=dropship_orders&wd_aero_untrash=' . absint( $log->order_id ) ),
+                    'wd_aero_untrash_' . absint( $log->order_id )
                   )
                 : '';
 
             echo '<tr>';
-            echo '<td>' . wp_kses_post($order_label) . '</td>';
-            echo '<td>' . esc_html($log_status) . '</td>';
-            echo '<td>' . esc_html($log->to_email ?? '') . '</td>';
-            echo '<td>' . esc_html($log->subject ?? '') . '</td>';
-            echo '<td>' . esc_html($log->sent_at ?? '') . '</td>';
+            echo '<td>' . wp_kses_post( $order_cell ) . '</td>';
+            echo '<td>' . esc_html( $customer_name ) . '</td>';
+            echo '<td>' . esc_html( $log_status ) . '</td>';
+            echo '<td>' . esc_html( $log->to_email ?? '' ) . '</td>';
+            echo '<td>' . esc_html( $log->subject  ?? '' ) . '</td>';
+            echo '<td>' . esc_html( $log->sent_at  ?? '' ) . '</td>';
             echo '<td>';
 
-            // Actions: View Order (if exists & not trashed), Restore (if trashed), View Email (always)
-            if ( $order_exists && ! $is_trashed ) {
-                echo '<a class="button" href="' . esc_url($view_order_url) . '">View Order</a> ';
+            if ( $exists && ! $is_trashed ) {
+                echo '<a class="button" href="' . esc_url( $view_order_url ) . '">' . esc_html__( 'View Order', 'wd-aero' ) . '</a> ';
             } elseif ( $is_trashed && current_user_can('edit_shop_orders') ) {
-                echo '<a class="button" href="' . esc_url($restore_url) . '">Restore Order</a> ';
+                echo '<a class="button" href="' . esc_url( $restore_url ) . '">' . esc_html__( 'Restore Order', 'wd-aero' ) . '</a> ';
             } else {
-                echo '<span class="button disabled" aria-disabled="true" style="opacity:.6;cursor:not-allowed;">Order Missing</span> ';
+                echo '<span class="button disabled" aria-disabled="true" style="opacity:.6;cursor:not-allowed;">' . esc_html__( 'Order Missing', 'wd-aero' ) . '</span> ';
             }
 
-            echo '<a class="button" href="' . esc_url($view_email_url) . '">View Email</a>';
+            echo '<a class="button" href="' . esc_url( $view_email_url ) . '">' . esc_html__( 'View Email', 'wd-aero' ) . '</a>';
 
             echo '</td>';
             echo '</tr>';
         }
     } else {
-        echo '<tr><td colspan="6">No logs found.</td></tr>';
+        echo '<tr><td colspan="7">' . esc_html__( 'No logs found.', 'wd-aero' ) . '</td></tr>';
     }
 
     echo '</tbody></table>';
 }
-
-
-
-
-
 
     private static function render_email_viewer_tab($order_id) {
         $email_body = get_post_meta($order_id, '_wd_aero_dropship_email', true);
