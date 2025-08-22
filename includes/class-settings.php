@@ -190,7 +190,7 @@ private static function render_email_template_tab() {
             <table border="1" cellpadding="8" cellspacing="0" style="border-collapse:collapse; width: 794px;">
                 <thead>
                     <tr>
-                        <th>Product</th><th>Product Code</th><th>Qty</th><th>Distributor Price</th>
+                        <th>Product</th><th>Product Code</th><th>Qty</th><th>Distributor Unit Price</th>
                     </tr>
                 </thead>
                 <tbody>
