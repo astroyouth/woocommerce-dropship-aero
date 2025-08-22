@@ -1,6 +1,6 @@
 {
   "name": "WooCommerce Dropship Steroplast",
-  "version": "1.2.4",
+  "version": "1.2.5",
   "download_url": "https://github.com/astroyouth/woocommerce-dropship-aero/archive/refs/heads/main.zip",
   "sections": { "changelog": "- Updater now stable\n- Logging improvements" },
   "requires": "5.8",
