@@ -176,7 +176,7 @@ private static function render_email_template_tab() {
     );
 
     echo '<p class="description">';
-    echo 'Use placeholders like: <code>{order_id}</code>, <code>{customer_name}</code>, <code>{delivery_address}</code>, <code>{product_table}</code>, <code>{distributor_number}</code>, <code>{distributor_address}</code>';
+   echo 'Use placeholders like: <code>{order_id}</code>, <code>{customer_name}</code>, <code>{customer_email}</code>, <code>{delivery_address}</code>, <code>{product_table}</code>, <code>{distributor_number}</code>, <code>{distributor_address}</code>';
     echo '</p>';
 
     submit_button('Save Email Template');
@@ -186,6 +186,7 @@ private static function render_email_template_tab() {
     $preview_template = strtr($raw_template, [
         '{order_id}' => '2449',
         '{customer_name}' => 'John Doe',
+        '{customer_email}'     => 'john@example.com',
         '{delivery_address}' => "John Doe<br>15 Some Road<br>Somewhere<br>Town<br>SUFFOLK<br>IP44 3TH<br>United Kingdom (UK)",
         '{product_table}' => '
             <table border="1" cellpadding="8" cellspacing="0" style="border-collapse:collapse; width: 794px;">

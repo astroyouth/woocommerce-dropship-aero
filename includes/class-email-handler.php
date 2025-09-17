@@ -95,6 +95,7 @@ class WD_Aero_Email_Handler {
         '{product_table}'       => $product_table,
         '{distributor_number}'  => esc_html((string) get_option('wd_aero_distributor_number')),
         '{distributor_address}' => nl2br(esc_html((string) get_option('wd_aero_distributor_address'))),
+        '{customer_email}'      => esc_html($order->get_billing_email()),
     ];
     $body_html = strtr($template, $replacements);
 
